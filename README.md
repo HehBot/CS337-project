@@ -7,3 +7,9 @@ ImageNet
 
 ## Paper
 Yosinski et al, _Understanding Neural Networks Through Deep Visualization_ (DOI 1506.06579)
+
+## TODO (in order of priority from highest to least)
+1. Modularize the code like our labs
+2. The authors say, "Our network was trained on ImageNet by first subtracting the per-pixel mean of examples in ImageNet before inputting training examples to the network. Thus, the direct input to the network, x, can be thought of as a zero-centered input." However, our current code generates pixel values in $[0, 1)$, and the pre-trained model was trained on images with non-zero mean. Modify the code to train AlexNet on zero-mean images, and then generate random image from a standard gaussian instead of $[0, 1)$.
+3. Implement the rest of the regularizers from the paper. Implemented L2.
+4. Try installing the toolbox, if you can (https://github.com/yosinski/deep-visualization-toolbox)
