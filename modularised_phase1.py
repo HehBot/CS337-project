@@ -4,85 +4,79 @@ from torchvision import models
 from PIL import Image
 import numpy as np
 
-class_idx = 456  # Class index for "bow"
-reg = 'none'
-reg_strength = 0.01
+class TargetedAttack:
+    def __init__(self, class_idx, reg='none', reg_strength=0.01, learning_rate=1, num_iterations=1000):
+        self.class_idx = class_idx
+        self.reg = reg
+        self.reg_strength = reg_strength
+        self.learning_rate = learning_rate
+        self.num_iterations = num_iterations
 
-def load_pretrained_model():
-    # Load the pre-trained AlexNet model
-    alexnet = models.alexnet(pretrained=True)
-    alexnet.eval()
-    return alexnet
+        # Set the random seed for CPU operations
+        torch.manual_seed(42)
 
-def create_input_image():
-    # Create a random input image (you can also start with an existing image)
-    input_image = torch.rand((1, 3, 224, 224), requires_grad=True)
-    return input_image
+        # Load the pre-trained AlexNet model
+        self.alexnet = models.alexnet(pretrained=True)
+        self.alexnet.eval()
 
-def update_input_image(input_image, learning_rate, reg, reg_strength):
-    # Update the input image with gradient and optional regularization
-    input_image.data += learning_rate * input_image.grad.data
-    if reg == 'l2':
-        input_image.data -= 2 * reg_strength * input_image.data
-    elif reg == 'l1':
-        input_image.data -= reg_strength * np.sign(input_image.data)
-    return torch.clamp(input_image, 0, 1)  # Clamp pixel values to [0, 1] range
+        # Create a random input image (you can also start with an existing image)
+        self.input_image = torch.rand((1, 3, 224, 224), requires_grad=True)
 
-def optimize_image(input_image, model, class_idx, learning_rate, num_iterations, reg, reg_strength):
-    optimizer = optim.SGD([input_image], lr=learning_rate)
+        # Create an optimizer
+        self.optimizer = optim.SGD([self.input_image], lr=self.learning_rate)
 
-    for iteration in range(num_iterations):
-        # Forward pass to compute activation
-        output = model(input_image)
-        activation = output[0, class_idx]
+    def forward_pass(self):
+        output = self.alexnet(self.input_image)
+        activation = output[0, self.class_idx]
+        return activation
 
-        # Backward pass to compute gradient
-        model.zero_grad()
+    def backward_pass(self):
+        self.alexnet.zero_grad()
+        activation = self.forward_pass()
         activation.backward()
 
-        # Update the input image
-        input_image = update_input_image(input_image, learning_rate, reg, reg_strength)
+    def update_input_image(self):
+        if self.reg == 'l2':
+            self.input_image.data += self.learning_rate * self.input_image.grad.data - 2 * self.reg_strength * self.input_image.data
+        elif self.reg == 'l1':
+            self.input_image.data += self.learning_rate * self.input_image.grad.data - self.reg_strength * np.sign(self.input_image.data)
+        elif self.reg == 'none':
+            self.input_image.data += self.learning_rate * self.input_image.grad.data
+        self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
 
-        # Zero out the gradient for the next iteration
-        input_image.grad.zero_()
+    def optimize(self):
+        for iteration in range(self.num_iterations):
+            self.backward_pass()
+            self.update_input_image()
+            self.input_image.grad.zero_()
+            print(f"Iteration {iteration + 1}/{self.num_iterations}, Activation: {self.forward_pass().item()}")
 
-        print(f"Iteration {iteration + 1}/{num_iterations}, Activation: {activation.item()}")
+    def get_prediction(self):
+        with torch.no_grad():
+            output = self.alexnet(self.input_image)
 
-    return input_image
+        predicted_class = output.argmax().item()
+        confidence = torch.softmax(output, dim=1)[0, predicted_class].item()
+        return predicted_class, confidence
 
-def main():
-    # Set the random seed for CPU operations
-    torch.manual_seed(42)
+    def get_optimized_image(self):
+        optimized_image = (self.input_image * 255).byte()
+        optimized_image = optimized_image.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        optimized_image = Image.fromarray(optimized_image)
+        return optimized_image
 
-    # Load the pre-trained model
-    alexnet = load_pretrained_model()
-
-    # Create the input image
-    input_image = create_input_image()
-
+if __name__ == "__main__":
+    class_idx = 456  # Replace with the index of your target class
+    reg = 'l2'  # Change the regularization method if needed
+    reg_strength = 0.01  # Adjust the regularization strength as needed
     learning_rate = 1
     num_iterations = 1000
 
-    # Optimize the input image
-    optimized_image = optimize_image(input_image, alexnet, class_idx, learning_rate, num_iterations, reg, reg_strength)
+    attack = TargetedAttack(class_idx, reg, reg_strength, learning_rate, num_iterations)
+    attack.optimize()
 
-    # Forward pass on the optimized image to get class probabilities
-    with torch.no_grad():
-        output = alexnet(optimized_image)
-
-    # Get the predicted class label
-    predicted_class = output.argmax().item()
-
-    # Get the confidence (probability) of the predicted class
-    confidence = torch.softmax(output, dim=1)[0, predicted_class].item()
-
+    predicted_class, confidence = attack.get_prediction()
     print(f"Predicted Class: {predicted_class}, Confidence: {confidence}")
 
-    # Convert the optimized tensor back to a PIL image
-    optimized_image = (optimized_image * 255).byte()
-    optimized_image = optimized_image.squeeze(0).permute(1, 2, 0).cpu().numpy()
-    optimized_image = Image.fromarray(optimized_image)
+    optimized_image = attack.get_optimized_image()
     optimized_image.show()
-
-if __name__ == "__main__":
-    main()
