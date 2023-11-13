@@ -12,7 +12,7 @@ class TargetedAttack:
         class_idx,
         reg="none",
         reg_strength=0.01,
-        decay_strength=0.01,
+        # decay_strength=0.01,
         blur_size=3,
         clip_cutoff=0.01,
         learning_rate=1,
@@ -21,7 +21,7 @@ class TargetedAttack:
         self.class_idx = class_idx
         self.reg = reg
         self.reg_strength = reg_strength
-        self.decay_strength = decay_strength
+        # self.decay_strength = decay_strength
         self.blur_size = blur_size
         self.clip_cutoff = clip_cutoff
         self.learning_rate = learning_rate
@@ -54,18 +54,24 @@ class TargetedAttack:
         self.input_image.data += self.learning_rate * self.input_image.grad.data
         if self.reg == "l2":
             self.input_image.data += -2 * self.reg_strength * self.input_image.data
+            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "l1":
             self.input_image.data += -self.reg_strength * np.sign(self.input_image.data)
+            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+        elif self.reg == "gaussian_blur":
+            # self.input_image.data *= 1 - self.decay_strength  # L2 decay
+            self.input_image.data = GaussianBlur(self.blur_size)(self.input_image.data)
+            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+            self.input_image.data = torch.where(
+                torch.abs(self.input_image.data) > self.clip_cutoff,
+                self.input_image.data,
+                torch.tensor(0),
+            )
         elif self.reg == "none":
-            pass
-        self.input_image.data *= 1 - self.decay_strength  # L2 decay
-        self.input_image.data = GaussianBlur(self.blur_size)(self.input_image.data)
-        self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
-        self.input_image.data = torch.where(
-            torch.abs(self.input_image.data) > self.clip_cutoff,
-            self.input_image.data,
-            torch.tensor(0),
-        )
+            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+        else:
+            print("INCORRECT REGULARIZATION\n")
+            exit()
 
     def optimize(self):
         for iteration in range(self.num_iterations):
@@ -93,9 +99,9 @@ class TargetedAttack:
 
 if __name__ == "__main__":
     class_idx = 456  # Replace with the index of your target class
-    reg = "l2"  # Change the regularization method if needed
+    reg = "gaussian_blur"  # Change the regularization method if needed
     reg_strength = 0.01  # Adjust the regularization strength as needed
-    decay_strength = 0.1
+    # decay_strength = 0.1
     blur_size = 3
     clip_cutoff = 0.01
     learning_rate = 1
@@ -105,7 +111,7 @@ if __name__ == "__main__":
         class_idx,
         reg,
         reg_strength,
-        decay_strength,
+        # decay_strength,
         blur_size,
         clip_cutoff,
         learning_rate,
