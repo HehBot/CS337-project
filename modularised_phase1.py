@@ -1,14 +1,29 @@
 import torch
 import torch.optim as optim
 from torchvision import models
+from torchvision.transforms import GaussianBlur
 from PIL import Image
 import numpy as np
 
+
 class TargetedAttack:
-    def __init__(self, class_idx, reg='none', reg_strength=0.01, learning_rate=1, num_iterations=1000):
+    def __init__(
+        self,
+        class_idx,
+        reg="none",
+        reg_strength=0.01,
+        decay_strength=0.01,
+        blur_size=3,
+        clip_cutoff=0.01,
+        learning_rate=1,
+        num_iterations=1000,
+    ):
         self.class_idx = class_idx
         self.reg = reg
         self.reg_strength = reg_strength
+        self.decay_strength = decay_strength
+        self.blur_size = blur_size
+        self.clip_cutoff = clip_cutoff
         self.learning_rate = learning_rate
         self.num_iterations = num_iterations
 
@@ -36,20 +51,30 @@ class TargetedAttack:
         activation.backward()
 
     def update_input_image(self):
-        if self.reg == 'l2':
-            self.input_image.data += self.learning_rate * self.input_image.grad.data - 2 * self.reg_strength * self.input_image.data
-        elif self.reg == 'l1':
-            self.input_image.data += self.learning_rate * self.input_image.grad.data - self.reg_strength * np.sign(self.input_image.data)
-        elif self.reg == 'none':
-            self.input_image.data += self.learning_rate * self.input_image.grad.data
+        self.input_image.data += self.learning_rate * self.input_image.grad.data
+        if self.reg == "l2":
+            self.input_image.data += -2 * self.reg_strength * self.input_image.data
+        elif self.reg == "l1":
+            self.input_image.data += -self.reg_strength * np.sign(self.input_image.data)
+        elif self.reg == "none":
+            pass
+        self.input_image.data *= 1 - self.decay_strength  # L2 decay
+        self.input_image.data = GaussianBlur(self.blur_size)(self.input_image.data)
         self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+        self.input_image.data = torch.where(
+            torch.abs(self.input_image.data) > self.clip_cutoff,
+            self.input_image.data,
+            torch.tensor(0),
+        )
 
     def optimize(self):
         for iteration in range(self.num_iterations):
             self.backward_pass()
             self.update_input_image()
             self.input_image.grad.zero_()
-            print(f"Iteration {iteration + 1}/{self.num_iterations}, Activation: {self.forward_pass().item()}")
+            print(
+                f"Iteration {iteration + 1}/{self.num_iterations}, Activation: {self.forward_pass().item()}"
+            )
 
     def get_prediction(self):
         with torch.no_grad():
@@ -65,14 +90,27 @@ class TargetedAttack:
         optimized_image = Image.fromarray(optimized_image)
         return optimized_image
 
+
 if __name__ == "__main__":
     class_idx = 456  # Replace with the index of your target class
-    reg = 'l2'  # Change the regularization method if needed
+    reg = "l2"  # Change the regularization method if needed
     reg_strength = 0.01  # Adjust the regularization strength as needed
+    decay_strength = 0.1
+    blur_size = 3
+    clip_cutoff = 0.01
     learning_rate = 1
     num_iterations = 1000
 
-    attack = TargetedAttack(class_idx, reg, reg_strength, learning_rate, num_iterations)
+    attack = TargetedAttack(
+        class_idx,
+        reg,
+        reg_strength,
+        decay_strength,
+        blur_size,
+        clip_cutoff,
+        learning_rate,
+        num_iterations,
+    )
     attack.optimize()
 
     predicted_class, confidence = attack.get_prediction()
