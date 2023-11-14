@@ -39,9 +39,12 @@ class TargetedAttack:
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
-        
-        # Create a random input image (you can also start with an existing image)
-        self.input_image = torch.rand((1, 3, 224, 224), requires_grad=True)
+
+        # Create a random input image from a standard Gaussian distribution
+        self.input_image = torch.randn((1, 3, 224, 224), requires_grad=True)
+
+        # # Create a random input image (you can also start with an existing image)
+        # self.input_image = torch.rand((1, 3, 224, 224), requires_grad=True)
 
         # Create an optimizer
         self.optimizer = optim.SGD([self.input_image], lr=self.learning_rate)
