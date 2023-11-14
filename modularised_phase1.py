@@ -33,7 +33,13 @@ class TargetedAttack:
         # Load the pre-trained AlexNet model
         self.alexnet = models.alexnet(pretrained=True)
         self.alexnet.eval()
-
+        
+        # Data preprocessing: Subtract mean and divide by standard deviation
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        
         # Create a random input image (you can also start with an existing image)
         self.input_image = torch.rand((1, 3, 224, 224), requires_grad=True)
 
