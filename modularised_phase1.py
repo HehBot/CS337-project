@@ -5,6 +5,8 @@ from torchvision.transforms import GaussianBlur
 from PIL import Image
 import numpy as np
 
+mean = torch.tensor([0.485, 0.456, 0.406])
+std = torch.tensor([0.229, 0.224, 0.225])
 
 class TargetedAttack:
     def __init__(
@@ -33,18 +35,10 @@ class TargetedAttack:
         # Load the pre-trained AlexNet model
         self.alexnet = models.alexnet(pretrained=True)
         self.alexnet.eval()
-        
-        # Data preprocessing: Subtract mean and divide by standard deviation
-        self.transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
 
-        # Create a random input image from a standard Gaussian distribution
-        self.input_image = torch.randn((1, 3, 224, 224), requires_grad=True)
-
-        # # Create a random input image (you can also start with an existing image)
-        # self.input_image = torch.rand((1, 3, 224, 224), requires_grad=True)
+        # Create a random input image (you can also start with an existing image)
+        self.input_image = torch.randn((1, 3, 224, 224)) + mean[None, :, None, None]
+        self.input_image.requires_grad = True
 
         # Create an optimizer
         self.optimizer = optim.SGD([self.input_image], lr=self.learning_rate)
@@ -62,10 +56,10 @@ class TargetedAttack:
     def update_input_image(self):
         self.input_image.data += self.learning_rate * self.input_image.grad.data
         if self.reg == "l2":
-            self.input_image.data += -2 * self.reg_strength * self.input_image.data
+            self.input_image.data += -2 * self.reg_strength * (self.input_image.data - mean[None, :, None, None])
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "l1":
-            self.input_image.data += -self.reg_strength * np.sign(self.input_image.data)
+            self.input_image.data += -self.reg_strength * np.sign(self.input_image.data - mean[None, :, None, None])
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "gaussian_blur":
             # self.input_image.data *= 1 - self.decay_strength  # L2 decay
@@ -107,14 +101,14 @@ class TargetedAttack:
 
 
 if __name__ == "__main__":
-    class_idx = 456  # Replace with the index of your target class
-    reg = "gaussian_blur"  # Change the regularization method if needed
+    class_idx = 99  # Replace with the index of your target class
+    reg = "l2"  # Change the regularization method if needed
     reg_strength = 0.01  # Adjust the regularization strength as needed
     # decay_strength = 0.1
     blur_size = 3
     clip_cutoff = 0.01
     learning_rate = 1
-    num_iterations = 1000
+    num_iterations = 500
 
     attack = TargetedAttack(
         class_idx,
