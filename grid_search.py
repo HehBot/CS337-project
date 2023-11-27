@@ -88,6 +88,7 @@ class TargetedAttack:
             self.input_image.data += -self.lmbda * self.alfa * np.sign(self.input_image.data - mean[None, :, None, None])
             self.input_image.data += -2 * (self.lmbda * (1 - self.alfa)) * (self.input_image.data - mean[None, :, None, None])
             self.input_image.data = GaussianBlur(self.theta_b_width)(self.input_image.data)
+            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         else:
             print("INCORRECT REGULARIZATION\n")
             exit()
