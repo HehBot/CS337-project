@@ -4,8 +4,7 @@ import torch.optim as optim
 import torchvision.transforms as T
 from torchvision.io import read_image, ImageReadMode
 from torchvision.utils import save_image
-from PIL import Image
-import numpy as np
+from tqdm import trange
 
 
 class Attack:
@@ -27,7 +26,7 @@ class Attack:
         self.learning_rate = learning_rate
         self.num_iterations = num_iterations
 
-        # Load the pre-trained AlexNet model
+        # Load the pre-trained model
         self.model = model
         self.model.eval()
         self.preprocess = preprocess
@@ -61,18 +60,18 @@ class Attack:
                 * (self.input_image.data - self.given_input_image.data)
             )
         elif self.reg == "l1":
-            self.input_image.data += -self.reg_strength * np.sign(
+            self.input_image.data += -self.reg_strength * torch.sign(
                 self.input_image.data - self.given_input_image.data
             )
 
     def optimize(self):
-        for iteration in range(self.num_iterations):
+        t = trange(self.num_iterations)
+        for i in t:
             self.backward_pass()
             self.update_input_image()
             self.input_image.grad.zero_()
-            print(
-                f"Iteration {iteration + 1}/{self.num_iterations}, Activation: {self.forward_pass().item()}"
-            )
+            t.set_description("Activation: %.2f" % self.forward_pass().item())
+            t.refresh()
 
     def get_prediction(self):
         with torch.no_grad():
@@ -99,8 +98,7 @@ if __name__ == "__main__":
     model = alexnet(weights=weights)
     class_names = weights.meta["categories"]
 
-    preprocess = weights.transforms()
-    print(preprocess)
+    preprocess = weights.transforms(antialias=None)
     # preprocessing means and std used in torchvision.models
     # required for reconstruction in postprocess
     preprocess_mean = [0.485, 0.456, 0.406]
@@ -109,7 +107,6 @@ if __name__ == "__main__":
         mean=[-m / s for m, s in zip(preprocess_mean, preprocess_std)],
         std=[1 / s for s in preprocess_std],
     )
-    print(postprocess)
 
     attack = Attack(
         model,
