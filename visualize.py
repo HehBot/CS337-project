@@ -73,19 +73,20 @@ class TargetedAttack:
         self.input_image.data += self.learning_rate * self.input_image.grad.data
         if self.reg == "l2":
             self.input_image.data += -2 * self.theta_decay * (self.input_image.data - mean[None, :, None, None])
-            # self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "l1":
             self.input_image.data += -self.theta_decay * np.sign(self.input_image.data - mean[None, :, None, None])
-            # self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "gaussian_blur":
             self.input_image.data = GaussianBlur(self.theta_b_width)(self.input_image.data)
-            # self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "none":
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "mix":
             self.input_image.data += -self.lmbda * self.alfa * np.sign(self.input_image.data - mean[None, :, None, None])
             self.input_image.data += -2 * (self.lmbda * (1 - self.alfa)) * (self.input_image.data - mean[None, :, None, None])
             self.input_image.data = GaussianBlur(self.theta_b_width)(self.input_image.data)
+            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         else:
             print("INCORRECT REGULARIZATION\n")
             exit()
