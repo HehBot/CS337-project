@@ -19,6 +19,8 @@ class TargetedAttack:
         theta_c_pct=95,
         learning_rate=1,
         num_iterations=1000,
+        lmbda = 0.01,
+        alfa = 0,
     ):
         self.class_idx = class_idx
         self.reg = reg
@@ -28,6 +30,8 @@ class TargetedAttack:
         self.learning_rate = learning_rate
         self.num_iterations = num_iterations
         self.theta_c_pct = theta_c_pct
+        self.lmbda = lmbda
+        self.alfa = alfa
 
         # Set the random seed for CPU operations
         torch.manual_seed(42)
@@ -69,15 +73,20 @@ class TargetedAttack:
         self.input_image.data += self.learning_rate * self.input_image.grad.data
         if self.reg == "l2":
             self.input_image.data += -2 * self.theta_decay * (self.input_image.data - mean[None, :, None, None])
-            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+            # self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "l1":
             self.input_image.data += -self.theta_decay * np.sign(self.input_image.data - mean[None, :, None, None])
-            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+            # self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "gaussian_blur":
             self.input_image.data = GaussianBlur(self.theta_b_width)(self.input_image.data)
-            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+            # self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "none":
-            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+            # self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+            pass
+        elif self.reg == "mix":
+            self.input_image.data += -self.lmbda * self.alfa * np.sign(self.input_image.data - mean[None, :, None, None])
+            self.input_image.data += -2 * (self.lmbda * (1 - self.alfa)) * (self.input_image.data - mean[None, :, None, None])
+            self.input_image.data = GaussianBlur(self.theta_b_width)(self.input_image.data)
         else:
             print("INCORRECT REGULARIZATION\n")
             exit()
@@ -120,14 +129,16 @@ class TargetedAttack:
 
 
 if __name__ == "__main__":
-    class_idx = 99  # Replace with the index of your target class
-    reg = "l2"  # Change the regularization method if needed
+    class_idx = 736  # Replace with the index of your target class
+    reg = "mix"  # Change the regularization method if needed
     theta_decay = 0.01  # Adjust the regularization strength as needed
     theta_b_width = 3
-    theta_n_pct = 1
+    theta_n_pct = 0.1
     learning_rate = 1
-    num_iterations = 500
-    theta_c_pct = 99
+    num_iterations = 200
+    theta_c_pct = 99.9
+    lmbda = 0.01
+    alfa = 0
 
     attack = TargetedAttack(
         class_idx,
@@ -138,6 +149,8 @@ if __name__ == "__main__":
         theta_c_pct,
         learning_rate,
         num_iterations,
+        lmbda,
+        alfa
     )
     attack.optimize()
 
