@@ -1,4 +1,4 @@
-from sys import argv
+from sys import argv, exit
 import torch
 import torch.optim as optim
 import torchvision.transforms as T
@@ -87,7 +87,8 @@ class Attack:
 
 if __name__ == "__main__":
     if len(argv) != 3:
-        print("Usage: %s <input_image_path> <desired_class>")
+        print("Usage: python %s <input_image_path> <desired_class>")
+        exit(1)
 
     given_input_image = read_image(argv[1], ImageReadMode.RGB) / 256.0
     required_class = int(argv[2])
