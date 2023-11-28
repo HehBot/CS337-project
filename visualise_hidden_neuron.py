@@ -15,7 +15,7 @@ class Visualise:
     def __init__(
         self,
         model,
-        required_class,
+        hidden_node,
         reg="none",
         theta_decay=0.01,
         theta_b_width=3,
@@ -23,10 +23,10 @@ class Visualise:
         theta_c_pct=5,
         learning_rate=1,
         num_iterations=1000,
-        lmbda=0.01,
         alfa=0,
+        hidden_layer = 4,
     ):
-        self.required_class = required_class
+        self.hidden_node = hidden_node
         self.reg = reg
         self.theta_decay = theta_decay
         self.theta_b_width = theta_b_width
@@ -34,7 +34,6 @@ class Visualise:
         self.learning_rate = learning_rate
         self.num_iterations = num_iterations
         self.theta_c_pct = theta_c_pct
-        self.lmbda = lmbda
         self.alfa = alfa
 
         # Set the random seed for CPU operations
@@ -54,21 +53,21 @@ class Visualise:
         # train_nodes, eval_nodes = get_graph_node_names(self.model)
         # print(train_nodes, eval_nodes)
         return_nodes = {
-            "features.4": "features.4"
+            f"features.{hidden_layer}": f'features.{hidden_layer}'
         }
         self.sub_model = create_feature_extractor(self.model, return_nodes=return_nodes)
 
     # def forward_pass(self):
     #     output = self.model(self.input_image)
     #     # print("size of output:",output.shape)
-    #     activation = output[0, self.required_class]
+    #     activation = output[0, self.hidden_node]
     #     return activation
 
     def forward_pass(self):
         intermediate_outputs = self.sub_model(self.input_image)
         # print(intermediate_outputs)
         
-        activation = torch.norm(intermediate_outputs["features.4"][0, self.required_class])
+        activation = torch.norm(intermediate_outputs[f'features.{hidden_layer}'][0, self.hidden_node])
         return activation
 
     def backward_pass(self):
@@ -108,17 +107,17 @@ class Visualise:
                 self.input_image.data
             )
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
-        elif self.reg == "none":
+        elif self.reg == "none" or self.reg == "clip":
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "mix":
             self.input_image.data += (
-                -self.lmbda
+                -self.theta_decay
                 * self.alfa
                 * np.sign(self.input_image.data - mean[None, :, None, None])
             )
             self.input_image.data += (
                 -2
-                * (self.lmbda * (1 - self.alfa))
+                * (self.theta_decay * (1 - self.alfa))
                 * (self.input_image.data - mean[None, :, None, None])
             )
             self.input_image.data = GaussianBlur(self.theta_b_width)(
@@ -126,8 +125,7 @@ class Visualise:
             )
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         else:
-            print("INCORRECT REGULARIZATION\n")
-            exit(1)
+            raise ValueError("Incorrect regularization.")
 
     def optimize(self):
         t = trange(self.num_iterations)
@@ -135,22 +133,22 @@ class Visualise:
             self.backward_pass()
 
             self.update_input_image()
+            if self.reg == "mix" or self.reg == "clip":
+                # Clip pixels with small contributions
+                contributions = self.compute_pixel_contributions()
+                self.clip_pixels_with_small_contributions(
+                    contributions, self.theta_c_pct
+                )  # Adjust percentile as needed
 
-            # Clip pixels with small contributions
-            contributions = self.compute_pixel_contributions()
-            self.clip_pixels_with_small_contributions(
-                contributions, self.theta_c_pct
-            )  # Adjust percentile as needed
-
-            # Clip pixels with small norm
-            norm_threshold = np.percentile(
-                self.input_image.data.numpy(), self.theta_n_pct
-            )
-            self.input_image.data = torch.where(
-                torch.abs(self.input_image.data) > norm_threshold,
-                self.input_image.data,
-                torch.tensor(0),
-            )
+                # Clip pixels with small norm
+                norm_threshold = np.percentile(
+                    self.input_image.data.numpy(), self.theta_n_pct
+                )
+                self.input_image.data = torch.where(
+                    torch.abs(self.input_image.data) > norm_threshold,
+                    self.input_image.data,
+                    torch.tensor(0),
+                )
             self.input_image.grad.zero_()
             t.set_description(f"Activation: {self.forward_pass().item():.2f}")
             t.refresh()
@@ -168,19 +166,28 @@ class Visualise:
 
 
 if __name__ == "__main__":
-    if len(argv) != 2:
-        print("Usage: python %s <desired_class>")
+    if len(argv) != 4:
+        print("Usage: python %s <desired_layer> <desired_node> <desire_regularization> ")
         exit(1)
 
-    reg = "mix"  # Change the regularization method if needed
-    theta_decay = 0.01  # Adjust the regularization strength as needed
-    theta_b_width = 3
-    theta_n_pct = 0.1
+    reg = argv[3]  # Change the regularization method if needed
+    hidden_layer = argv[1]
+    hidden_node = int(argv[2])
     learning_rate = 1
     num_iterations = 200
+    
+    # relevant to l1 and l2 and mix
+    theta_decay = 0.0001  # Adjust the regularization strength as needed
+    
+    # relevant to gaussian blur and mix
+    theta_b_width = 3
+    
+    # relevant to clip and mix
+    theta_n_pct = 0.1
     theta_c_pct = 5
-    lmbda = 0.01
-    alfa = 0
+    
+    # relevant to mix
+    alfa = 0    # l1 and l2 are implemented in the proportion alfa:1-alfa
 
     from torchvision.models import alexnet, AlexNet_Weights
 
@@ -188,11 +195,9 @@ if __name__ == "__main__":
     model = alexnet(weights=weights)
     class_names = weights.meta["categories"]
 
-    required_class = int(argv[1])
-
     attack = Visualise(
         model,
-        required_class,
+        hidden_node,
         reg,
         theta_decay,
         theta_b_width,
@@ -200,16 +205,15 @@ if __name__ == "__main__":
         theta_c_pct,
         learning_rate,
         num_iterations,
-        lmbda,
         alfa,
+        hidden_layer,
     )
     attack.optimize()
 
     predicted_class, confidence = attack.get_prediction()
-    print(f"Desired Class:   {class_names[required_class]}")
-    print(f"Predicted Class: {class_names[predicted_class]}, Confidence: {confidence}")
+    print(f"Image saved at ./layer_{hidden_layer}_node_{hidden_node}_{reg}.png")
 
     optimized_image = attack.get_optimized_image()
     save_image(
-        optimized_image, f"{class_names[predicted_class]}_visualise.png", format="png"
+        optimized_image, f"layer_{hidden_layer}_node_{hidden_node}_{reg}.png", format="png"
     )

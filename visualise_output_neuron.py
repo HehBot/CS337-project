@@ -151,7 +151,7 @@ class Visualise:
 
 if __name__ == "__main__":
     if len(argv) != 3:
-        print("Usage: python %s <desired_class> <desire_regularization>")
+        print("Usage: python %s <desired_class_index> <desire_regularization>")
         exit(1)
 
     reg = argv[2]  # Change the regularization method if needed
@@ -196,6 +196,7 @@ if __name__ == "__main__":
     predicted_class, confidence = attack.get_prediction()
     print(f"Desired Class:   {class_names[required_class]}")
     print(f"Predicted Class: {class_names[predicted_class]}, Confidence: {confidence}")
+    print(f"Image saved at ./{class_names[predicted_class]}_visualise.png")
 
     optimized_image = attack.get_optimized_image()
     save_image(
