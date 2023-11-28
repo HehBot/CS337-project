@@ -17,7 +17,7 @@ class TargetedAttack:
         theta_decay=0.01,
         theta_b_width=3,
         theta_n_pct=5,
-        theta_c_pct=95,
+        theta_c_pct=5,
         learning_rate=1,
         num_iterations=1000,
         lmbda = 0.01,
@@ -66,7 +66,7 @@ class TargetedAttack:
 
     def clip_pixels_with_small_contributions(self, contributions, percentile):
         threshold = np.percentile(contributions.abs().numpy(), percentile)
-        mask = contributions.abs() <= threshold
+        mask = contributions.abs() >= threshold
         self.input_image.data = torch.where(mask, self.input_image.data, torch.tensor(0))
     
 
@@ -197,11 +197,11 @@ if __name__ == "__main__":
     class_idx = 736  # Replace with the index of your target class
     reg = "mix"  # Change the regularization method if needed
     theta_decay = 0.01  # Adjust the regularization strength as needed
-    theta_b_width = [1, 3, 6]
+    theta_b_width = [1, 3, 5]
     theta_n_pct = [0, 0.1, 0.2]
     learning_rate = 1
     num_iterations = 200
-    theta_c_pct = [100, 99.9, 99]
+    theta_c_pct = [0, 5, 10]
     lmbda = 0.01
     alfa = [0, 0.2, 0.4]
     
