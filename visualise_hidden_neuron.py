@@ -20,7 +20,7 @@ class Visualise:
         theta_decay=0.01,
         theta_b_width=3,
         theta_n_pct=5,
-        theta_c_pct=95,
+        theta_c_pct=5,
         learning_rate=1,
         num_iterations=1000,
         lmbda=0.01,
@@ -84,7 +84,7 @@ class Visualise:
 
     def clip_pixels_with_small_contributions(self, contributions, percentile):
         threshold = np.percentile(contributions.abs().numpy(), percentile)
-        mask = contributions.abs() <= threshold
+        mask = contributions.abs() >= threshold
         self.input_image.data = torch.where(
             mask, self.input_image.data, torch.tensor(0)
         )
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     theta_n_pct = 0.1
     learning_rate = 1
     num_iterations = 200
-    theta_c_pct = 99.9
+    theta_c_pct = 5
     lmbda = 0.01
     alfa = 0
 
