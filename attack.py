@@ -1,9 +1,4 @@
-from sys import argv, exit
-from os.path import splitext
 import torch
-import torchvision.transforms as T
-from torchvision.io import read_image, ImageReadMode
-from torchvision.utils import save_image
 from tqdm import trange
 
 
@@ -83,11 +78,15 @@ class Attack:
 
 
 if __name__ == "__main__":
+    from sys import argv, exit
+
     if len(argv) != 3 and len(argv) != 4:
         print(
             "Usage: python %s <input_image_path> <desired_class_index> [output_image_path]"
         )
         exit(1)
+
+    from torchvision.io import read_image, ImageReadMode
 
     given_input_image = read_image(argv[1], ImageReadMode.RGB) / 256.0
     required_class = int(argv[2])
@@ -103,7 +102,9 @@ if __name__ == "__main__":
     # required for reconstruction in postprocess
     preprocess_mean = [0.485, 0.456, 0.406]
     preprocess_std = [0.229, 0.224, 0.225]
-    postprocess = T.Normalize(
+    from torchvision.transforms import Normalize
+
+    postprocess = Normalize(
         mean=[-m / s for m, s in zip(preprocess_mean, preprocess_std)],
         std=[1 / s for s in preprocess_std],
     )
@@ -124,8 +125,12 @@ if __name__ == "__main__":
         f"Initial Class:   {class_names[initial_class]}, Confidence: {initial_confidence}"
     )
 
+    from os.path import splitext
+
     original_filename, original_filetype = splitext(argv[1])
     original_filetype = original_filetype[1:]
+
+    from torchvision.utils import save_image
 
     save_image(
         postprocess(preprocess(given_input_image)),
@@ -141,7 +146,7 @@ if __name__ == "__main__":
     optimized_image = attack.get_optimized_image()
 
     if len(argv) != 4:
-        output_filename = "adversarial_" + original_filename + "." + original_filetype
+        output_filename = "adversarial_" + original_filename
         output_filetype = original_filetype
     else:
         output_filename, output_filetype = splitext(argv[3])
