@@ -1,7 +1,6 @@
 from sys import argv, exit
 from os.path import splitext
 import torch
-import torch.optim as optim
 import torchvision.transforms as T
 from torchvision.io import read_image, ImageReadMode
 from torchvision.utils import save_image
@@ -38,9 +37,6 @@ class Attack:
         self.given_input_image = torch.reshape(z, (1, *z.shape))
         self.input_image = self.given_input_image.detach().clone()
         self.input_image.requires_grad = True
-
-        # Create an optimizer
-        self.optimizer = optim.SGD([self.input_image], lr=self.learning_rate)
 
     def forward_pass(self):
         output = self.model(self.input_image)

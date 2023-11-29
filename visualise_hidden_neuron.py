@@ -1,6 +1,5 @@
 from sys import argv, exit
 import torch
-import torch.optim as optim
 from torchvision.transforms import GaussianBlur
 from torchvision.models.feature_extraction import create_feature_extractor
 from torchvision.utils import save_image
@@ -46,9 +45,6 @@ class Visualise:
         # Create a random input image (you can also start with an existing image)
         self.input_image = torch.randn((1, 3, 224, 224)) + mean[None, :, None, None]
         self.input_image.requires_grad = True
-
-        # Create an optimizer
-        self.optimizer = optim.SGD([self.input_image], lr=self.learning_rate)
 
         return_nodes = {f"features.{hidden_layer}": f"features.{hidden_layer}"}
         self.sub_model = create_feature_extractor(self.model, return_nodes=return_nodes)
@@ -127,7 +123,6 @@ class Visualise:
         t = trange(self.num_iterations)
         for iteration in t:
             self.backward_pass()
-
             self.update_input_image()
             if self.reg == "mix" or self.reg == "clip":
                 # Clip pixels with small contributions
@@ -146,6 +141,7 @@ class Visualise:
                     torch.tensor(0),
                 )
             self.input_image.grad.zero_()
+
             t.set_description(f"Activation: {self.forward_pass().item():.2f}")
             t.refresh()
 
