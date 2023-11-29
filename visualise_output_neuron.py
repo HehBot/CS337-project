@@ -3,11 +3,9 @@ import torch
 import torch.optim as optim
 from torchvision.transforms import GaussianBlur
 from torchvision.utils import save_image
-import numpy as np
 from tqdm import trange
 
 mean = torch.tensor([0.485, 0.456, 0.406])
-std = torch.tensor([0.229, 0.224, 0.225])
 
 
 class Visualise:
@@ -18,6 +16,7 @@ class Visualise:
         reg="none",
         theta_decay=0.01,
         theta_b_width=3,
+        theta_b_every=1,
         theta_n_pct=5,
         theta_c_pct=5,
         learning_rate=1,
@@ -28,18 +27,20 @@ class Visualise:
         self.reg = reg
         self.theta_decay = theta_decay
         self.theta_b_width = theta_b_width
+        self.theta_b_every = theta_b_every
         self.theta_n_pct = theta_n_pct
         self.learning_rate = learning_rate
         self.num_iterations = num_iterations
         self.theta_c_pct = theta_c_pct
         self.alfa = alfa
 
-        # Set the random seed for CPU operations
-        torch.manual_seed(42)
+        self.gaussian_count = 0
 
         # Load the pre-trained AlexNet model
         self.model = model
         self.model.eval()
+
+        torch.manual_seed(42)
 
         # Create a random input image (you can also start with an existing image)
         self.input_image = torch.randn((1, 3, 224, 224)) + mean[None, :, None, None]
@@ -66,7 +67,7 @@ class Visualise:
         return gradients
 
     def clip_pixels_with_small_contributions(self, contributions, percentile):
-        threshold = np.percentile(contributions.abs().numpy(), percentile)
+        threshold = torch.quantile(contributions.abs(), percentile / 100)
         mask = contributions.abs() >= threshold
         self.input_image.data = torch.where(
             mask, self.input_image.data, torch.tensor(0)
@@ -82,31 +83,35 @@ class Visualise:
             )
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "l1":
-            self.input_image.data += -self.theta_decay * np.sign(
+            self.input_image.data += -self.theta_decay * torch.sign(
                 self.input_image.data - mean[None, :, None, None]
             )
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "gaussian_blur":
-            self.input_image.data = GaussianBlur(self.theta_b_width)(
-                self.input_image.data
-            )
-            self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+            if self.gaussian_count == 0:
+                self.input_image.data = GaussianBlur(self.theta_b_width)(
+                    self.input_image.data
+                )
+                self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
+            self.gaussian_count = (self.gaussian_count + 1) % self.theta_b_every
         elif self.reg == "none" or self.reg == "clip":
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         elif self.reg == "mix":
             self.input_image.data += (
                 -self.theta_decay
                 * self.alfa
-                * np.sign(self.input_image.data - mean[None, :, None, None])
+                * torch.sign(self.input_image.data - mean[None, :, None, None])
             )
             self.input_image.data += (
                 -2
                 * (self.theta_decay * (1 - self.alfa))
                 * (self.input_image.data - mean[None, :, None, None])
             )
-            self.input_image.data = GaussianBlur(self.theta_b_width)(
-                self.input_image.data
-            )
+            if self.gaussian_count == 0:
+                self.input_image.data = GaussianBlur(self.theta_b_width)(
+                    self.input_image.data
+                )
+            self.gaussian_count = (self.gaussian_count + 1) % self.theta_b_every
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         else:
             raise ValueError("Incorrect regularisation.")
@@ -125,8 +130,8 @@ class Visualise:
                 )  # Adjust percentile as needed
 
                 # Clip pixels with small norm
-                norm_threshold = np.percentile(
-                    self.input_image.data.numpy(), self.theta_n_pct
+                norm_threshold = torch.quantile(
+                    self.input_image.data, self.theta_n_pct / 100
                 )
                 self.input_image.data = torch.where(
                     torch.abs(self.input_image.data) > norm_threshold,
@@ -151,7 +156,7 @@ class Visualise:
 
 if __name__ == "__main__":
     if len(argv) != 3:
-        print("Usage: python %s <desired_class_index> <desire_regularisation>")
+        print("Usage: python %s <desired_class_index> <desired_regularisation>")
         exit(1)
 
     reg = argv[2]  # Change the regularisation method if needed
@@ -163,6 +168,7 @@ if __name__ == "__main__":
 
     # relevant to gaussian blur and mix
     theta_b_width = 3
+    theta_b_every = 1
 
     # relevant to clip and mix
     theta_n_pct = 0.1
@@ -185,6 +191,7 @@ if __name__ == "__main__":
         reg,
         theta_decay,
         theta_b_width,
+        theta_b_every,
         theta_n_pct,
         theta_c_pct,
         learning_rate,
