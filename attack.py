@@ -1,4 +1,5 @@
 from sys import argv, exit
+from os.path import splitext
 import torch
 import torch.optim as optim
 import torchvision.transforms as T
@@ -86,8 +87,10 @@ class Attack:
 
 
 if __name__ == "__main__":
-    if len(argv) != 3:
-        print("Usage: python %s <input_image_path> <desired_class>")
+    if len(argv) != 3 and len(argv) != 4:
+        print(
+            "Usage: python %s <input_image_path> <desired_class_index> [output_image_path]"
+        )
         exit(1)
 
     given_input_image = read_image(argv[1], ImageReadMode.RGB) / 256.0
@@ -118,17 +121,20 @@ if __name__ == "__main__":
         reg="l2",
         reg_strength=0.05,
         learning_rate=2,
-        num_iterations=100,
+        num_iterations=10,
     )
     initial_class, initial_confidence = attack.get_prediction()
     print(
         f"Initial Class:   {class_names[initial_class]}, Confidence: {initial_confidence}"
     )
 
+    original_filename, original_filetype = splitext(argv[1])
+    original_filetype = original_filetype[1:]
+
     save_image(
         postprocess(preprocess(given_input_image)),
-        f"original_'{argv[1]}'_'{class_names[initial_class]}'_{initial_confidence:.2f}.png",
-        format="png",
+        "original_" + original_filename + "." + original_filetype,
+        format=original_filetype,
     )
 
     attack.optimize()
@@ -137,8 +143,16 @@ if __name__ == "__main__":
     print(f"Predicted Class: {class_names[predicted_class]}, Confidence: {confidence}")
 
     optimized_image = attack.get_optimized_image()
+
+    if len(argv) != 4:
+        output_filename = "adversarial_" + original_filename + "." + original_filetype
+        output_filetype = original_filetype
+    else:
+        output_filename, output_filetype = splitext(argv[3])
+        output_filetype = output_filetype[1:]
+
     save_image(
         optimized_image,
-        f"adversarial_'{argv[1]}'_'{class_names[required_class]}'_{confidence:.2f}.png",
-        format="png",
+        output_filename + "." + output_filetype,
+        format=output_filetype,
     )

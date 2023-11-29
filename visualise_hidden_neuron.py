@@ -2,7 +2,10 @@ from sys import argv, exit
 import torch
 import torch.optim as optim
 from torchvision.transforms import GaussianBlur
-from torchvision.models.feature_extraction import create_feature_extractor, get_graph_node_names
+from torchvision.models.feature_extraction import (
+    create_feature_extractor,
+    get_graph_node_names,
+)
 from torchvision.utils import save_image
 import numpy as np
 from tqdm import trange
@@ -24,7 +27,7 @@ class Visualise:
         learning_rate=1,
         num_iterations=1000,
         alfa=0,
-        hidden_layer = 4,
+        hidden_layer=4,
     ):
         self.hidden_node = hidden_node
         self.reg = reg
@@ -49,12 +52,10 @@ class Visualise:
 
         # Create an optimizer
         self.optimizer = optim.SGD([self.input_image], lr=self.learning_rate)
-        
+
         # train_nodes, eval_nodes = get_graph_node_names(self.model)
         # print(train_nodes, eval_nodes)
-        return_nodes = {
-            f"features.{hidden_layer}": f'features.{hidden_layer}'
-        }
+        return_nodes = {f"features.{hidden_layer}": f"features.{hidden_layer}"}
         self.sub_model = create_feature_extractor(self.model, return_nodes=return_nodes)
 
     # def forward_pass(self):
@@ -66,8 +67,10 @@ class Visualise:
     def forward_pass(self):
         intermediate_outputs = self.sub_model(self.input_image)
         # print(intermediate_outputs)
-        
-        activation = torch.norm(intermediate_outputs[f'features.{hidden_layer}'][0, self.hidden_node])
+
+        activation = torch.norm(
+            intermediate_outputs[f"features.{hidden_layer}"][0, self.hidden_node]
+        )
         return activation
 
     def backward_pass(self):
@@ -125,7 +128,7 @@ class Visualise:
             )
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         else:
-            raise ValueError("Incorrect regularization.")
+            raise ValueError("Incorrect regularisation.")
 
     def optimize(self):
         t = trange(self.num_iterations)
@@ -167,27 +170,29 @@ class Visualise:
 
 if __name__ == "__main__":
     if len(argv) != 4:
-        print("Usage: python %s <desired_layer> <desired_node> <desire_regularization> ")
+        print(
+            "Usage: python %s <desired_layer> <desired_node> <desire_regularisation> "
+        )
         exit(1)
 
-    reg = argv[3]  # Change the regularization method if needed
+    reg = argv[3]  # Change the regularisation method if needed
     hidden_layer = argv[1]
     hidden_node = int(argv[2])
     learning_rate = 1
     num_iterations = 200
-    
+
     # relevant to l1 and l2 and mix
-    theta_decay = 0.0001  # Adjust the regularization strength as needed
-    
+    theta_decay = 0.0001  # Adjust the regularisation strength as needed
+
     # relevant to gaussian blur and mix
     theta_b_width = 3
-    
+
     # relevant to clip and mix
     theta_n_pct = 0.1
     theta_c_pct = 5
-    
+
     # relevant to mix
-    alfa = 0    # l1 and l2 are implemented in the proportion alfa:1-alfa
+    alfa = 0  # l1 and l2 are implemented in the proportion alfa:1-alfa
 
     from torchvision.models import alexnet, AlexNet_Weights
 
@@ -215,5 +220,7 @@ if __name__ == "__main__":
 
     optimized_image = attack.get_optimized_image()
     save_image(
-        optimized_image, f"layer_{hidden_layer}_node_{hidden_node}_{reg}.png", format="png"
+        optimized_image,
+        f"layer_{hidden_layer}_node_{hidden_node}_{reg}.png",
+        format="png",
     )

@@ -109,7 +109,7 @@ class Visualise:
             )
             self.input_image.data = torch.clamp(self.input_image.data, 0, 1)
         else:
-            raise ValueError("Incorrect regularization.")
+            raise ValueError("Incorrect regularisation.")
 
     def optimize(self):
         t = trange(self.num_iterations)
@@ -151,25 +151,25 @@ class Visualise:
 
 if __name__ == "__main__":
     if len(argv) != 3:
-        print("Usage: python %s <desired_class_index> <desire_regularization>")
+        print("Usage: python %s <desired_class_index> <desire_regularisation>")
         exit(1)
 
-    reg = argv[2]  # Change the regularization method if needed
+    reg = argv[2]  # Change the regularisation method if needed
     learning_rate = 1
     num_iterations = 200
-    
+
     # relevant to l1 and l2 and mix
-    theta_decay = 0.01  # Adjust the regularization strength as needed
-    
+    theta_decay = 0.01  # Adjust the regularisation strength as needed
+
     # relevant to gaussian blur and mix
     theta_b_width = 3
-    
+
     # relevant to clip and mix
     theta_n_pct = 0.1
     theta_c_pct = 5
-    
+
     # relevant to mix
-    alfa = 0        # l1 and l2 are implemented in the proportion alfa:1-alfa
+    alfa = 0  # l1 and l2 are implemented in the proportion alfa:1-alfa
 
     from torchvision.models import alexnet, AlexNet_Weights
 
