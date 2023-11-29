@@ -7,7 +7,9 @@ ImageNet
 
 ## Paper
 Yosinski et al, _Understanding Neural Networks Through Deep Visualization_ (DOI 1506.06579)
+
 [Presentation](https://drive.google.com/file/d/1RtDA9q4AIPVcZKg9v2SuW74k6VL_RNwk/view?usp=drive_link)
+
 [Report INSERT LINK](https://example.com)
 
 ## Description

@@ -39,8 +39,6 @@ class Visualise:
         self.model = model
         self.model.eval()
 
-        torch.manual_seed(42)
-
         # Create a random input image (you can also start with an existing image)
         self.input_image = torch.randn((1, 3, 224, 224)) + mean[None, :, None, None]
         self.input_image.requires_grad = True
