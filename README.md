@@ -10,7 +10,7 @@ Yosinski et al, _Understanding Neural Networks Through Deep Visualization_ (DOI 
 
 [Presentation](https://drive.google.com/file/d/1RtDA9q4AIPVcZKg9v2SuW74k6VL_RNwk/view?usp=drive_link)
 
-[Report INSERT LINK](https://example.com)
+[Report](https://drive.google.com/file/d/1_vU7F3FS1CmNMaNFcWxc_RpiwliqgGw-/view?usp=sharing)
 
 ## Description
 The `visualise_output_neuron.py` script is designed for visualizing and optimizing the input image to maximise the activation of a specific neuron in a pre-trained AlexNet model (from `torchvision.models`). The goal is to generate an image that strongly activates the specified neuron, providing insight into what features the neuron is responsive to.
